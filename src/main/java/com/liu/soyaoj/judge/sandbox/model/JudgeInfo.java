@@ -1,4 +1,4 @@
-package com.liu.soyaoj.model.dto.questionsubmit;
+package com.liu.soyaoj.judge.sandbox.model;
 
 import lombok.Data;
 

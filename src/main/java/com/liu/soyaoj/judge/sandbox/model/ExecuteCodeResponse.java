@@ -1,6 +1,5 @@
 package com.liu.soyaoj.judge.sandbox.model;
 
-import com.liu.soyaoj.model.dto.questionsubmit.JudgeInfo;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;

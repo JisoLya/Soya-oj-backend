@@ -1,6 +1,5 @@
 package com.liu.soyaoj.judge;
 
-import cn.hutool.json.JSON;
 import cn.hutool.json.JSONUtil;
 import com.liu.soyaoj.common.ErrorCode;
 import com.liu.soyaoj.exception.BusinessException;
@@ -10,7 +9,7 @@ import com.liu.soyaoj.judge.sandbox.CodeSandboxProxy;
 import com.liu.soyaoj.judge.sandbox.model.ExecuteCodeRequest;
 import com.liu.soyaoj.judge.sandbox.model.ExecuteCodeResponse;
 import com.liu.soyaoj.model.dto.question.JudgeCase;
-import com.liu.soyaoj.model.dto.questionsubmit.JudgeInfo;
+import com.liu.soyaoj.judge.sandbox.model.JudgeInfo;
 import com.liu.soyaoj.model.entity.Question;
 import com.liu.soyaoj.model.entity.QuestionSubmit;
 import com.liu.soyaoj.model.enums.JudgeStatusEnum;
