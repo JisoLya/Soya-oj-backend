@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.liu.soyaoj.common.ErrorCode;
 import com.liu.soyaoj.constant.CommonConstant;
 import com.liu.soyaoj.exception.BusinessException;
+import com.liu.soyaoj.judge.JudgeService;
 import com.liu.soyaoj.model.dto.question.QuestionQueryRequest;
 import com.liu.soyaoj.model.dto.questionsubmit.QuestionSubmitAddRequest;
 import com.liu.soyaoj.model.dto.questionsubmit.QuestionSubmitQueryRequest;
@@ -26,6 +27,7 @@ import com.liu.soyaoj.utils.SqlUtils;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -33,6 +35,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -50,6 +53,10 @@ public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper,
     @Resource
     private UserService userService;
 
+    @Resource
+    @Lazy
+    private JudgeService judgeService;
+
     /**
      * 点赞
      *
@@ -60,22 +67,37 @@ public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper,
     @Override
     public Long doQuestionSubmit(QuestionSubmitAddRequest questionSubmitAddRequest, User loginUser) {
         String language = questionSubmitAddRequest.getLanguage();
-        QuestionSubmitLanguageEnum anEnum = QuestionSubmitLanguageEnum.getEnumByValue(language);
-        if (anEnum == null) {
+        QuestionSubmitLanguageEnum languageEnum = QuestionSubmitLanguageEnum.getEnumByValue(language);
+        if (languageEnum == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "编程语言错误");
         }
+        long questionId = questionSubmitAddRequest.getQuestionId();
         // 判断实体是否存在，根据类别获取实体
-        Long questionId = questionSubmitAddRequest.getQuestionId();
         Question question = questionService.getById(questionId);
         if (question == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
-        QuestionSubmit questionSubmit = getSubmit(questionSubmitAddRequest, loginUser);
+        // 是否已提交题目
+        long userId = loginUser.getId();
+        // 每个用户串行提交题目
+        QuestionSubmit questionSubmit = new QuestionSubmit();
+        questionSubmit.setUserId(userId);
+        questionSubmit.setQuestionId(questionId);
+        questionSubmit.setCode(questionSubmitAddRequest.getCode());
+        questionSubmit.setLanguage(language);
+        // 设置初始状态
+        questionSubmit.setStatus(QuestionSubmitStatusEnum.WAITING.getValue());
+        questionSubmit.setJudgeInfo("{}");
         boolean save = this.save(questionSubmit);
         if (!save) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "题目提交失败");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "数据插入失败");
         }
-        return questionSubmit.getId();
+        Long questionSubmitId = questionSubmit.getId();
+        // 执行判题服务
+        CompletableFuture.runAsync(() -> {
+            judgeService.doJudge(questionSubmitId);
+        });
+        return questionSubmitId;
     }
 
     @NotNull
@@ -125,6 +147,22 @@ public class QuestionSubmitServiceImpl extends ServiceImpl<QuestionSubmitMapper,
 
         if (userId != questionSubmit.getUserId() || !userService.isAdmin(loginUser)) {
             questionSubmitVO.setCode(null);
+        }
+        switch (questionSubmit.getStatus()) {
+            case 0:
+                questionSubmitVO.setStatus(QuestionSubmitStatusEnum.WAITING.getText());
+                break;
+            case 1:
+                questionSubmitVO.setStatus(QuestionSubmitStatusEnum.RUNNING.getText());
+                break;
+            case 2:
+                questionSubmitVO.setStatus(QuestionSubmitStatusEnum.SUCCEED.getText());
+                break;
+            case 3:
+                questionSubmitVO.setStatus(QuestionSubmitStatusEnum.FAILED.getText());
+                break;
+            default:
+                questionSubmitVO.setStatus("Undefined");
         }
         return questionSubmitVO;
     }

@@ -2,6 +2,7 @@ package com.liu.soyaoj;
 
 import com.liu.soyaoj.judge.sandbox.CodeSandbox;
 import com.liu.soyaoj.judge.sandbox.CodeSandboxFactory;
+import com.liu.soyaoj.judge.sandbox.Impl.RemoteSandbox;
 import com.liu.soyaoj.judge.sandbox.model.ExecuteCodeRequest;
 import com.liu.soyaoj.judge.sandbox.model.ExecuteCodeResponse;
 import com.liu.soyaoj.model.enums.JudgeStatusEnum;
@@ -42,4 +43,59 @@ class MainApplicationTests {
         System.out.println(response);
     }
 
+    @Test
+    void testRemote() {
+        RemoteSandbox remoteSandbox = new RemoteSandbox();
+        String code = "public class Main{\n" +
+                "    public static void main(String[] args) throws InterruptedException{\n" +
+                "        int a = Integer.parseInt(args[0]);\n" +
+                "        int b = Integer.parseInt(args[1]);\n" +
+                "        int c = a + b;\n" +
+                "        System.out.println(c);\n" +
+                "    }\n" +
+                "}";
+        String language = QuestionSubmitLanguageEnum.JAVA.getValue();
+        ArrayList<String> arrayList = new ArrayList<>();
+        arrayList.add("1 1");
+        ExecuteCodeRequest codeRequest = new ExecuteCodeRequest(language, code, arrayList, 200L);
+        ExecuteCodeResponse response = remoteSandbox.execute(codeRequest);
+        System.out.println(response);
+    }
+
+    @Test
+    void testRemoteWrongCode() {
+        RemoteSandbox remoteSandbox = new RemoteSandbox();
+        String code = "public class Main{\n" +
+                "    public static void main(String[] args) throws InterruptedException{\n" +
+                "        int a = Integer.parseInt(args[0]);\n" +
+                "        int b = Integer.parseInt(args[1]);\n" +
+                "        int c = a + b;\n" +
+                "        System.out.println(c);\n" +
+                "    }\n";
+        String language = QuestionSubmitLanguageEnum.JAVA.getValue();
+        ArrayList<String> arrayList = new ArrayList<>();
+        arrayList.add("1 1");
+        ExecuteCodeRequest codeRequest = new ExecuteCodeRequest(language, code, arrayList, 200L);
+        ExecuteCodeResponse response = remoteSandbox.execute(codeRequest);
+        System.out.println(response);
+    }
+
+    @Test
+    void TestWrongInput() {
+        RemoteSandbox remoteSandbox = new RemoteSandbox();
+        String code = "public class Main{\n" +
+                "    public static void main(String[] args) throws InterruptedException{\n" +
+                "        int a = Integer.parseInt(args[0]);\n" +
+                "        int b = Integer.parseInt(args[1]);\n" +
+                "        int c = a + b;\n" +
+                "        System.out.println(c);\n" +
+                "    }\n" +
+                "}";
+        String language = QuestionSubmitLanguageEnum.JAVA.getValue();
+        ArrayList<String> arrayList = new ArrayList<>();
+        arrayList.add("1");
+        ExecuteCodeRequest codeRequest = new ExecuteCodeRequest(language, code, arrayList, 200L);
+        ExecuteCodeResponse response = remoteSandbox.execute(codeRequest);
+        System.out.println(response);
+    }
 }

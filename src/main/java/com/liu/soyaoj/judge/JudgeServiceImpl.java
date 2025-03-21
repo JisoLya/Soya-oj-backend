@@ -18,12 +18,15 @@ import com.liu.soyaoj.model.vo.QuestionSubmitVO;
 import com.liu.soyaoj.service.QuestionService;
 import com.liu.soyaoj.service.QuestionSubmitService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+@Service
 public class JudgeServiceImpl implements JudgeService {
     @Resource
     private QuestionService questionService;
@@ -39,32 +42,29 @@ public class JudgeServiceImpl implements JudgeService {
     public QuestionSubmitVO doJudge(long questionSubmitId) {
         //1. 获取题目信息
         QuestionSubmit questionSubmit = questionSubmitService.getById(questionSubmitId);
-
-        if(questionSubmit == null){
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"提交信息不存在");
+        if (questionSubmit == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "提交信息不存在");
         }
-
         Long questionId = questionSubmit.getQuestionId();
         Question question = questionService.getById(questionId);
-        if(question == null){
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR,"题目不存在");
+        if (question == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR, "题目不存在");
         }
-
         //2. 获取当前题目的状态
-        if (Objects.equals(questionSubmit.getStatus(), QuestionSubmitStatusEnum.RUNNING.getValue())){
-            throw new BusinessException(ErrorCode.OPERATION_ERROR,"已在判题");
+        if (Objects.equals(questionSubmit.getStatus(), QuestionSubmitStatusEnum.RUNNING.getValue())) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "已在判题");
         }
 
         QuestionSubmit questionSubmitUpdate = new QuestionSubmit();
         questionSubmitUpdate.setId(questionSubmitId);
         questionSubmitUpdate.setStatus(QuestionSubmitStatusEnum.RUNNING.getValue());
         boolean b = questionSubmitService.updateById(questionSubmitUpdate);
-        if(!b){
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR,"更改题目状态为判题中失败！");
+        if (!b) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更改题目状态为判题中失败！");
         }
         //3. 调用代码沙箱
         CodeSandbox sandbox = CodeSandboxFactory.getInstance(type);
-        sandbox  = new CodeSandboxProxy(sandbox);
+        sandbox = new CodeSandboxProxy(sandbox);
 
         String judgeCaseStr = question.getJudgeCase();
 
@@ -84,12 +84,12 @@ public class JudgeServiceImpl implements JudgeService {
         List<String> outputList = executeCodeResponse.getOutput();
         JudgeStatusEnum judgeStatusEnum = JudgeStatusEnum.WAITING;
 
-        if(outputList.size() != inputList.size()){
+        if (outputList.size() != inputList.size()) {
             judgeStatusEnum = JudgeStatusEnum.WRONG_ANSWER;
         }
         //依次判断每项预期输出
-        for(int i = 0; i < judgeCases.size();i++){
-            if(!judgeCases.get(i).equals(outputList.get(i))){
+        for (int i = 0; i < judgeCases.size(); i++) {
+            if (!judgeCases.get(i).equals(outputList.get(i))) {
                 judgeStatusEnum = JudgeStatusEnum.WRONG_ANSWER;
                 break;
             }
@@ -98,22 +98,40 @@ public class JudgeServiceImpl implements JudgeService {
 
         //拿到响应结果,进一步判断内存与时间
         JudgeInfo judgeInfo = executeCodeResponse.getJudgeInfo();
-        Long time = judgeInfo.getTime();
-        Long memory = judgeInfo.getMemory();
+        Long time = judgeInfo.getTimeLimit();
+        Long memory = judgeInfo.getMemoryLimit();
         //预期的判题结果
         String judgeConfigStr = question.getJudgeConfig();
         JudgeInfo expectedRes = JSONUtil.toBean(judgeConfigStr, JudgeInfo.class);
-        Long expectMemory = expectedRes.getMemory();
-        Long expectedTime = expectedRes.getTime();
+        Long expectMemory = expectedRes.getMemoryLimit();
+        Long expectedTime = expectedRes.getTimeLimit();
 
-        if(time > expectedTime){
+        if (time != null && time > expectedTime) {
             judgeStatusEnum = JudgeStatusEnum.EXCEED_TIME_LIMIT;
             return null;
         }
-        if(memory > expectMemory){
+        if (memory != null && memory > expectMemory) {
             judgeStatusEnum = JudgeStatusEnum.EXCEED_MEMORY_LIMIT;
             return null;
         }
-        return null;
+
+        //更新题目提交表
+        QuestionSubmit submit = new QuestionSubmit();
+        submit.setStatus(QuestionSubmitStatusEnum.SUCCEED.getValue());
+        submit.setLanguage(language);
+        submit.setCode(code);
+        submit.setId(questionSubmitId);
+        submit.setJudgeInfo(JSONUtil.toJsonStr(judgeInfo));
+
+        boolean update = questionSubmitService.updateById(submit);
+        if (!update) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "题目状态更新错误");
+        }
+        QuestionSubmitVO submitVO = new QuestionSubmitVO();
+        submitVO.setId(questionSubmitId);
+        submitVO.setLanguage(language);
+        submitVO.setCode(code);
+        submitVO.setStatus(judgeInfo.getSuccess() ? QuestionSubmitStatusEnum.SUCCEED.getText() : QuestionSubmitStatusEnum.FAILED.getText());
+        return submitVO;
     }
 }

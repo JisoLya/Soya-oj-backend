@@ -7,6 +7,9 @@ import lombok.Data;
  */
 @Data
 public class JudgeInfo {
+
+    private Boolean success;
+
     /**
      * 判题信息
      */
@@ -14,9 +17,9 @@ public class JudgeInfo {
     /**
      * 判题所耗时长
      */
-    private Long time;
+    private Long timeLimit;
     /**
      * 内存占用
      */
-    private Long memory;
+    private Long memoryLimit;
 }
